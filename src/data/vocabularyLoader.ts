@@ -41,6 +41,10 @@ interface Row {
 
 const BASE = `${import.meta.env.BASE_URL || '/'}data`;
 
+/* Injected at build time from the manifest's contents (see vite.config.ts). */
+declare const __DATA_VERSION__: string;
+const DATA_VERSION = typeof __DATA_VERSION__ === 'string' ? __DATA_VERSION__ : 'dev';
+
 export const TIER_NAMES: Record<number, string> = {
   1: '最高頻核心', 2: '高頻學術', 3: '學術主力', 4: '進階學術', 5: '中階拓展',
   6: '中高難度', 7: '高難度', 8: '罕用學術', 9: '專業論文', 10: '頂尖難字',
@@ -106,7 +110,7 @@ let manifestPromise: Promise<VocabManifest> | null = null;
 
 export function loadManifest(): Promise<VocabManifest> {
   if (!manifestPromise) {
-    manifestPromise = fetch(`${BASE}/index.json`).then((r) => {
+    manifestPromise = fetch(`${BASE}/index.json?v=${DATA_VERSION}`).then((r) => {
       if (!r.ok) throw new Error(`詞庫索引載入失敗 (${r.status})`);
       return r.json();
     });
