@@ -29,16 +29,32 @@ export const DuolingoQuizModal: React.FC<DuolingoQuizModalProps> = ({
 
   // Generate quiz items from word pool
   useEffect(() => {
+    /* The dictionary spans junior-high through GRE. Drilling "pianist" or
+       "prince" in a TOEFL session is a waste of the learner's time, so
+       questions are drawn from exam-level words when any are available. */
+    const isExamLevel = (w: TOEFLWord) =>
+      !w.examTags || w.examTags.some(t => t === 'toefl' || t === 'gre' || t === 'ielts');
+
     let pool = category ? allWords.filter(w => w.category === category) : allWords;
+    const examPool = pool.filter(isExamLevel);
+    if (examPool.length >= 4) pool = examPool;
     if (pool.length < 4) pool = allWords;
 
     // Shuffle pool
     const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, 5);
 
     const generatedItems: QuizItem[] = shuffled.map((target, idx) => {
-      // Pick 3 distractors
-      const distractors = allWords
-        .filter(w => w.id !== target.id)
+      /* Distractors come from the target's own tier so every option sits at a
+         comparable difficulty — a rare word next to three easy ones gives the
+         answer away. */
+      const sameTier = allWords.filter(
+        w => w.id !== target.id && isExamLevel(w) && (!target.tier || w.tier === target.tier),
+      );
+      const distractorPool = sameTier.length >= 3
+        ? sameTier
+        : allWords.filter(w => w.id !== target.id && isExamLevel(w));
+
+      const distractors = distractorPool
         .sort(() => Math.random() - 0.5)
         .slice(0, 3);
 

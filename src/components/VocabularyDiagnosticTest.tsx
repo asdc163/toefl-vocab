@@ -17,11 +17,39 @@ export const VocabularyDiagnosticTest: React.FC<VocabularyDiagnosticTestProps> =
 
   const startTest = () => {
     soundFx.playClick();
-    // Sample 10 words
-    const sampled = [...allWords].sort(() => Math.random() - 0.5).slice(0, 10);
+
+    /* This estimates a TOEFL vocabulary size, so it has to sample TOEFL-level
+       words. Drawing from the whole dictionary — which reaches down to
+       junior-high vocabulary — would inflate the estimate. Sampling is spread
+       across the frequency tiers so the result reflects range, not luck. */
+    const examLevel = allWords.filter(
+      w => !w.examTags || w.examTags.some(t => t === 'toefl' || t === 'gre' || t === 'ielts'),
+    );
+    const source = examLevel.length >= 20 ? examLevel : allWords;
+
+    const byTier = new Map<number, TOEFLWord[]>();
+    for (const w of source) {
+      const t = w.tier ?? 0;
+      if (!byTier.has(t)) byTier.set(t, []);
+      byTier.get(t)!.push(w);
+    }
+    const tiers = [...byTier.keys()].sort((a, b) => a - b);
+    const sampled: TOEFLWord[] = [];
+    for (let i = 0; sampled.length < 10 && i < 10 * tiers.length; i++) {
+      const bucket = byTier.get(tiers[i % tiers.length])!;
+      const pick = bucket[Math.floor(Math.random() * bucket.length)];
+      if (pick && !sampled.some(s => s.id === pick.id)) sampled.push(pick);
+    }
+    while (sampled.length < 10 && source.length > sampled.length) {
+      const pick = source[Math.floor(Math.random() * source.length)];
+      if (!sampled.some(s => s.id === pick.id)) sampled.push(pick);
+    }
+
     const items = sampled.map(w => {
-      const distractors = allWords
-        .filter(other => other.id !== w.id)
+      const sameTier = source.filter(
+        other => other.id !== w.id && (!w.tier || other.tier === w.tier),
+      );
+      const distractors = (sameTier.length >= 3 ? sameTier : source.filter(o => o.id !== w.id))
         .sort(() => Math.random() - 0.5)
         .slice(0, 3)
         .map(d => d.definition);
