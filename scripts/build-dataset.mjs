@@ -143,13 +143,28 @@ function zh(s) {
     .map(x => x.replace(/^[,，、·\s]+|[,，、·\s]+$/g, ""))
     .filter(Boolean);
 
-  /* Stripping a field label can leave a duplicate: "[化] 光合作用" becomes
-     "光合作用", which the first sense already covers. Drop anything an
-     earlier sense already contains. */
+  /* Stripping a field label can leave a near-duplicate: "[化] 光合作用" becomes
+     "光合作用", and "[經] 通行證, 護照" becomes a reordering of a sense already
+     listed. Compare the set of comma-separated glosses rather than the string,
+     so both exact repeats and reorderings collapse. */
+  const POS_RE = /^(?:vt|vi|v|adj|a|adv|ad|n|prep|conj|pron|art|num|int)\b\.?\s*/i;
+  const keyOf = x =>
+    x.replace(POS_RE, "").split(/[,，、]/).map(t => t.trim()).filter(Boolean).sort().join("|");
+
   const unique = [];
+  const seenKeys = [];
   for (const x of senses) {
-    const bare = x.replace(/^(?:vt|vi|v|adj|a|adv|ad|n|prep|conj|pron|art|num|int)\b\.?\s*/i, "");
-    if (unique.some(y => y.includes(bare) || bare.includes(y.replace(/^(?:vt|vi|v|adj|a|adv|ad|n)\b\.?\s*/i, "")))) continue;
+    const key = keyOf(x);
+    if (!key) continue;
+    const parts = new Set(key.split("|"));
+    const covered = seenKeys.some(prev => {
+      const prevParts = new Set(prev.split("|"));
+      const smaller = parts.size <= prevParts.size ? parts : prevParts;
+      const larger = smaller === parts ? prevParts : parts;
+      return [...smaller].every(t => larger.has(t));   // one sense subsumes the other
+    });
+    if (covered) continue;
+    seenKeys.push(key);
     unique.push(x);
   }
 
