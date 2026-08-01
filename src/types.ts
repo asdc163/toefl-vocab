@@ -1,5 +1,5 @@
 /* The seven curated topical units, plus the ten frequency tiers that the
-   14,131-word dictionary is split into (see data/vocabularyLoader.ts). */
+   12,499-word dictionary is split into (see data/vocabularyLoader.ts). */
 export type TOEFLCategory =
   | `tier-${number}`
   | 'academic'

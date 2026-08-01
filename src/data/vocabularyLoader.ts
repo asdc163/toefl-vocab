@@ -1,6 +1,6 @@
 import { TOEFLWord } from '../types';
 
-/* Loads the 14,131-word dictionary that ships in public/data.
+/* Loads the 12,499-word dictionary that ships in public/data.
  *
  * Source: ECDICT (MIT, skywind3000/ECDICT) — the toefl/gre/ielts/cet6/cet4
  * tagged subset, Chinese glosses converted to Taiwan Traditional. Tiers are

@@ -20,7 +20,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       /* Not an error the learner caused — the app is fully usable without it. */
       return res.status(503).json({
         error: 'AI 擴充功能未啟用',
-        hint: '這是選配功能。內建的 14,131 字詞庫不需要它也能完整使用；若要開啟，請在 Vercel 專案設定新增 GEMINI_API_KEY 環境變數。',
+        hint: '這是選配功能。內建的 12,499 字詞庫不需要它也能完整使用；若要開啟，請在 Vercel 專案設定新增 GEMINI_API_KEY 環境變數。',
       });
     }
     if (err instanceof BadRequest) {

@@ -1,7 +1,7 @@
 /* Gemini-backed handlers, shared by the local dev server (server.ts) and the
  * Vercel serverless routes (api/ai/[action].ts) so the two cannot drift.
  *
- * AI is optional in this build: the 14,131-word dictionary ships with the app
+ * AI is optional in this build: the 12,499-word dictionary ships with the app
  * and every screen works without a key. These endpoints only add on-demand
  * extras (mnemonics, example sentences, words outside the dictionary), so a
  * missing key returns a clear 503 rather than crashing the app.

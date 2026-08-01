@@ -21,7 +21,17 @@ const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const toTW = OpenCC.Converter({ from: "cn", to: "twp" });
 
 /* ---------- exam tags we keep, most-specific first ---------- */
-const EXAM = ["toefl", "gre", "ielts", "cet6", "cet4", "ky", "gk"];
+const EXAM = ["toefl", "gre", "ielts", "cet6", "cet4"];
+
+/* Junior-high basics. ECDICT also tags many of them onto harder lists —
+   "can" carries `toefl`, and in/on/say/as/go/get carry `ielts` — so filtering
+   by exam tag alone never removes them and they take over Tier 1 on frequency.
+   Carrying `zk` is the reliable signal that a TOEFL candidate already knows
+   the word. Words like `analyze` and `structure` are unaffected: they are
+   tagged `gk`/`cet4`, never `zk`. */
+const TOO_BASIC = ["zk"];
+
+
 
 /* ---------- ECDICT `exchange` codes ----------
    p past · d past participle · i ing · 3 third-person · r comparative
@@ -75,6 +85,7 @@ for (const r of rows(path.join(root, "data", "ecdict.csv"))) {
   scanned++;
   const tags = (r.tag || "").split(" ").filter(Boolean);
   if (!tags.some(t => EXAM.includes(t))) continue;
+  if (tags.some(t => TOO_BASIC.includes(t))) continue;
   if (!r.translation) continue;
   if (!/^[a-zA-Z]+$/.test(r.word)) continue;          // single alphabetic words only
   if (r.word.length < 2) continue;
@@ -139,7 +150,8 @@ const MAX_SENSE_CHARS = 30;   // a quiz option has to stay readable on a phone
 function zh(s) {
   const senses = toTW(String(s).replace(/\\n/g, "\n"))
     .split("\n")
-    .map(x => x.replace(/\[[^\]]{1,6}\]/g, "").replace(/\s{2,}/g, " ").trim())
+    .filter(x => !/\[[^\]]{1,6}\]/.test(x))          // drop field-labelled senses outright
+    .map(x => x.replace(/\s{2,}/g, " ").trim())
     .map(x => x.replace(/^[,，、·\s]+|[,，、·\s]+$/g, ""))
     .filter(Boolean);
 
