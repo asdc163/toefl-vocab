@@ -10,7 +10,7 @@ import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
-import { runAction, AI_ACTIONS, BadRequest, MissingKeyError, UpstreamError, isAIEnabled, type AIAction } from './api/_lib/gemini';
+import { runAction, AI_ACTIONS, BadRequest, MissingKeyError, UpstreamError, isAIEnabled, type AIAction } from './lib/gemini';
 
 dotenv.config();
 

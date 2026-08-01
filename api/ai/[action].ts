@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { runAction, AI_ACTIONS, BadRequest, MissingKeyError, UpstreamError, type AIAction } from '../_lib/gemini';
+import { runAction, AI_ACTIONS, BadRequest, MissingKeyError, UpstreamError, type AIAction } from '../../lib/gemini';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
