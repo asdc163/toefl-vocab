@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------
+   Minimum touch target.
+
+   Apple HIG and WCAG 2.5.5 both put the floor at 44x44 CSS px. The
+   original layout was designed around 33 words and used 26-40px
+   controls, which are hard to hit accurately on a phone. Setting the
+   floor here rather than on every className keeps it from regressing
+   as components change.
+
+   Controls opt out with .tap-exempt when they are decorative or sit
+   inside a larger tappable parent.
+   --------------------------------------------------------------- */
+button:not(.tap-exempt),
+[role='button']:not(.tap-exempt),
+select,
+textarea,
+input:not([type='hidden']):not([type='checkbox']):not([type='radio']) {
+  min-height: 44px;
+}
+
+/* Icon-only controls also need the horizontal floor. */
+button:not(.tap-exempt):empty,
+button:not(.tap-exempt) > svg:only-child {
+  min-width: 44px;
+}
+
+/* Keep tap feedback instant on touch devices. */
+button,
+[role='button'] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}

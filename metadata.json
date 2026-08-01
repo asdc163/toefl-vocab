@@ -1,0 +1,6 @@
+{
+  "name": "托福單字隨身學",
+  "description": "結合杜林果(Duolingo)遊戲化與艾賓浩斯間隔重複科學(SRS)，專為 Web 及手機優化的輕鬆托福高頻單字學習與測驗 App",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
