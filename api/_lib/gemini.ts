@@ -6,16 +6,19 @@
  * extras (mnemonics, example sentences, words outside the dictionary), so a
  * missing key returns a clear 503 rather than crashing the app.
  */
-/* @google/genai is ESM-only and ~450 KB. Importing it at module scope pulled it
-   into every serverless function — including /api/health, which only needs to
-   read an env var — and any load-time failure in the SDK took the whole route
-   down with it. It is therefore imported lazily, at the moment a request
-   actually needs to reach Gemini. */
+/* Talks to Gemini over its REST endpoint rather than through @google/genai.
+ *
+ * The SDK is ESM-only and ~450 KB; bundling it into the serverless function
+ * produced a module that crashed on load (FUNCTION_INVOCATION_FAILED on every
+ * request, including ones that never touched Gemini). All this route needs is
+ * a single generateContent call, which is one fetch — so the dependency is
+ * gone and the function is a few KB instead. */
 
 const MODEL = 'gemini-3.6-flash';
+const ENDPOINT = (model: string) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-/* The SDK's Type enum is a plain string enum; mirroring it here keeps the
-   schema literals below free of any import. */
+/* Mirrors the SDK's Type enum, which is a plain string enum. */
 const Type = {
   STRING: 'STRING',
   NUMBER: 'NUMBER',
@@ -24,6 +27,13 @@ const Type = {
   ARRAY: 'ARRAY',
   OBJECT: 'OBJECT',
 } as const;
+
+export class UpstreamError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UpstreamError';
+  }
+}
 
 export class MissingKeyError extends Error {
   constructor() {
@@ -36,12 +46,9 @@ export function isAIEnabled(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
 }
 
-async function client() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new MissingKeyError();
-  const { GoogleGenAI } = await import('@google/genai');
-  return new GoogleGenAI({ apiKey });
-}
+/* Gemini can take a while on the longer prompts; without a ceiling a hung
+   upstream would hold the function open until the platform kills it. */
+const TIMEOUT_MS = 25_000;
 
 const STR = { type: Type.STRING } as const;
 const STR_ARRAY = { type: Type.ARRAY, items: { type: Type.STRING } } as const;
@@ -64,13 +71,52 @@ const WORD_CARD_REQUIRED = [
 ];
 
 async function generate(prompt: string, responseSchema: unknown) {
-  const ai = await client();
-  const res = await ai.models.generateContent({
-    model: MODEL,
-    contents: prompt,
-    config: { responseMimeType: 'application/json', responseSchema: responseSchema as never },
-  });
-  return JSON.parse(res.text || 'null');
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new MissingKeyError();
+
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), TIMEOUT_MS);
+
+  let res: Response;
+  try {
+    res = await fetch(ENDPOINT(MODEL), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema,
+        },
+      }),
+      signal: ctl.signal,
+    });
+  } catch (err) {
+    throw new UpstreamError(
+      (err as Error).name === 'AbortError' ? 'Gemini 回應逾時' : `無法連線至 Gemini：${(err as Error).message}`,
+    );
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    /* Surface the cause without echoing the key back to the caller. */
+    throw new UpstreamError(`Gemini 回應 ${res.status}${detail ? `：${detail.slice(0, 300)}` : ''}`);
+  }
+
+  const payload = await res.json().catch(() => null) as any;
+  const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (typeof text !== 'string') {
+    const blocked = payload?.promptFeedback?.blockReason;
+    throw new UpstreamError(blocked ? `Gemini 拒絕回應（${blocked}）` : 'Gemini 回傳格式無法解析');
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new UpstreamError('Gemini 回傳的內容不是有效 JSON');
+  }
 }
 
 export type AIAction =

@@ -10,7 +10,7 @@ import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
-import { runAction, AI_ACTIONS, BadRequest, MissingKeyError, isAIEnabled, type AIAction } from './api/_lib/gemini';
+import { runAction, AI_ACTIONS, BadRequest, MissingKeyError, UpstreamError, isAIEnabled, type AIAction } from './api/_lib/gemini';
 
 dotenv.config();
 
@@ -40,6 +40,7 @@ async function startServer() {
         });
       }
       if (err instanceof BadRequest) return res.status(400).json({ error: (err as Error).message });
+      if (err instanceof UpstreamError) return res.status(502).json({ error: (err as Error).message });
       console.error(`AI action "${action}" failed:`, err);
       res.status(502).json({ error: 'AI 服務暫時無法回應，請稍後再試。', details: (err as Error).message });
     }

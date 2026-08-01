@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { runAction, AI_ACTIONS, BadRequest, MissingKeyError, type AIAction } from '../_lib/gemini';
+import { runAction, AI_ACTIONS, BadRequest, MissingKeyError, UpstreamError, type AIAction } from '../_lib/gemini';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') {
@@ -25,6 +25,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     if (err instanceof BadRequest) {
       return res.status(400).json({ error: (err as Error).message });
+    }
+    if (err instanceof UpstreamError) {
+      return res.status(502).json({ error: (err as Error).message });
     }
     console.error(`AI action "${raw}" failed:`, err);
     return res.status(502).json({
