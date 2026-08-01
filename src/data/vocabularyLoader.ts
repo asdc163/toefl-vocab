@@ -116,10 +116,17 @@ export function loadManifest(): Promise<VocabManifest> {
 
 const tierCache = new Map<number, Promise<TOEFLWord[]>>();
 
+/* Chunk filenames are content-hashed, so the name has to come from the
+   manifest rather than being constructed — see scripts/build-dataset.mjs. */
 export function loadTier(tier: number): Promise<TOEFLWord[]> {
   let p = tierCache.get(tier);
   if (!p) {
-    p = fetch(`${BASE}/tier-${tier}.json`)
+    p = loadManifest()
+      .then((mf) => {
+        const entry = mf.tiers.find((t) => t.n === tier);
+        if (!entry) throw new Error(`詞庫沒有 Tier ${tier}`);
+        return fetch(`${BASE}/${entry.file}`);
+      })
       .then((r) => {
         if (!r.ok) throw new Error(`Tier ${tier} 載入失敗 (${r.status})`);
         return r.json();

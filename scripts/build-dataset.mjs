@@ -8,6 +8,7 @@
  * Run: node scripts/build-dataset.mjs
  */
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
@@ -255,14 +256,20 @@ const outDir = path.join(root, "public", "data");
 fs.mkdirSync(outDir, { recursive: true });
 for (const f of fs.readdirSync(outDir)) fs.unlinkSync(path.join(outDir, f));
 
+/* Chunk filenames carry a content hash. They are served with a one-year
+   immutable cache, so a fixed name would pin returning users to whatever
+   vocabulary they first downloaded — an updated dictionary would never reach
+   them. Only index.json is fetched fresh, and it names the current chunks. */
 const manifest = { total: entries.length, tiers: [], roots, generated: null };
 for (let t = 1; t <= TIERS; t++) {
   const chunk = entries.filter(e => e.s === t);
-  const file = `tier-${t}.json`;
-  fs.writeFileSync(path.join(outDir, file), JSON.stringify(chunk));
-  const bytes = fs.statSync(path.join(outDir, file)).size;
+  const body = JSON.stringify(chunk);
+  const hash = crypto.createHash("sha256").update(body).digest("hex").slice(0, 8);
+  const file = `tier-${t}.${hash}.json`;
+  fs.writeFileSync(path.join(outDir, file), body);
+  const bytes = Buffer.byteLength(body);
   manifest.tiers.push({ n: t, count: chunk.length, file, bytes });
-  console.log(`  tier ${String(t).padStart(2)}: ${String(chunk.length).padStart(5)} words  ${(bytes / 1024).toFixed(0)} KB`);
+  console.log(`  tier ${String(t).padStart(2)}: ${String(chunk.length).padStart(5)} words  ${(bytes / 1024).toFixed(0)} KB  ${file}`);
 }
 fs.writeFileSync(path.join(outDir, "index.json"), JSON.stringify(manifest));
 
