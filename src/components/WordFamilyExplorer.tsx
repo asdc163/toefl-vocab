@@ -26,17 +26,17 @@ const COMMON_ROOTS = [
   { tag: 'chron-', name: 'chron- (時間)' }
 ];
 
-const VOCAB_TIERS = [
-  { tier: 1, range: '1 - 1,000', label: 'Tier 1 核心學術基礎', topic: 'Academic Research & Argumentation' },
-  { tier: 2, range: '1,001 - 2,000', label: 'Tier 2 自然科學與生物學', topic: 'Biology & Evolution' },
-  { tier: 3, range: '2,001 - 3,000', label: 'Tier 3 地球地質與環境氣候', topic: 'Geology & Climate' },
-  { tier: 4, range: '3,001 - 4,000', label: 'Tier 4 人文歷史與考古美學', topic: 'History & Art' },
-  { tier: 5, range: '4,001 - 5,000', label: 'Tier 5 心理學與神經認知', topic: 'Psychology & Brain' },
-  { tier: 6, range: '5,001 - 6,000', label: 'Tier 6 天文學與宇宙物理', topic: 'Astronomy & Physics' },
-  { tier: 7, range: '6,001 - 7,000', label: 'Tier 7 商業經濟與社會結構', topic: 'Economics & Sociology' },
-  { tier: 8, range: '7,001 - 8,000', label: 'Tier 8 語言學與校園生活', topic: 'Linguistics & Campus' },
-  { tier: 9, range: '8,001 - 9,000', label: 'Tier 9 法律科技與政治論述', topic: 'Law & Technology' },
-  { tier: 10, range: '9,001 - 10,000+', label: 'Tier 10 專家級頂尖論文真題', topic: 'Advanced Dissertation Terms' }
+const VOCAB_TIERS: { tier: number; label: string; topic: string }[] = [
+  { tier: 1, label: 'Tier 1 核心學術基礎', topic: 'Academic Research & Argumentation' },
+  { tier: 2, label: 'Tier 2 自然科學與生物學', topic: 'Biology & Evolution' },
+  { tier: 3, label: 'Tier 3 地球地質與環境氣候', topic: 'Geology & Climate' },
+  { tier: 4, label: 'Tier 4 人文歷史與考古美學', topic: 'History & Art' },
+  { tier: 5, label: 'Tier 5 心理學與神經認知', topic: 'Psychology & Brain' },
+  { tier: 6, label: 'Tier 6 天文學與宇宙物理', topic: 'Astronomy & Physics' },
+  { tier: 7, label: 'Tier 7 商業經濟與社會結構', topic: 'Economics & Sociology' },
+  { tier: 8, label: 'Tier 8 語言學與校園生活', topic: 'Linguistics & Campus' },
+  { tier: 9, label: 'Tier 9 法律科技與政治論述', topic: 'Law & Technology' },
+  { tier: 10, label: 'Tier 10 專家級頂尖論文真題', topic: 'Advanced Dissertation Terms' }
 ];
 
 export const WordFamilyExplorer: React.FC<WordFamilyExplorerProps> = ({
@@ -91,19 +91,29 @@ export const WordFamilyExplorer: React.FC<WordFamilyExplorerProps> = ({
         w.definition.includes(searchQuery.trim()) ||
         (w.rootEtymology && w.rootEtymology.toLowerCase().includes(q));
 
+      const matchesTier = !selectedTier || w.tier === selectedTier;
+
       const matchesRoot =
         selectedRoot === 'ALL' ||
         (w.rootTag && w.rootTag.toLowerCase().includes(root)) ||
         (w.rootEtymology && w.rootEtymology.toLowerCase().includes(rootBare));
 
-      return matchesSearch && matchesRoot;
+      return matchesSearch && matchesRoot && matchesTier;
     });
-  }, [allWords, searchQuery, selectedRoot]);
+  }, [allWords, searchQuery, selectedRoot, selectedTier]);
 
   const visibleWords = filteredWords.slice(0, visibleCount);
 
+  /* Real word count per tier, so the tier cards state what is actually there
+     instead of the prototype's invented "1 - 1,000 字" bands. */
+  const tierCounts = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const w of allWords) if (w.tier) m.set(w.tier, (m.get(w.tier) || 0) + 1);
+    return m;
+  }, [allWords]);
+
   // A new query should start from the top of the list again
-  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [searchQuery, selectedRoot]);
+  useEffect(() => { setVisibleCount(PAGE_SIZE); }, [searchQuery, selectedRoot, selectedTier]);
 
   // Handle AI Full Expansion Search
   const handleAiSearch = async () => {
@@ -152,7 +162,7 @@ export const WordFamilyExplorer: React.FC<WordFamilyExplorerProps> = ({
         </p>
 
         {/* Universal Search Bar */}
-        <div className="pt-2 flex items-center gap-2">
+        <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-2">
           <div className="relative flex-1">
             <Search className="w-5 h-5 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -160,7 +170,7 @@ export const WordFamilyExplorer: React.FC<WordFamilyExplorerProps> = ({
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAiSearch()}
-              placeholder="搜尋任何托福單字 (如 hypothesize, mitigate, 心理學...)"
+              placeholder="搜尋單字或中文釋義"
               className="w-full bg-white text-slate-900 font-medium pl-10 pr-4 py-3 rounded-2xl text-xs outline-none focus:ring-2 focus:ring-emerald-400 shadow-inner"
             />
           </div>
@@ -168,7 +178,7 @@ export const WordFamilyExplorer: React.FC<WordFamilyExplorerProps> = ({
           <button
             onClick={handleAiSearch}
             disabled={isAiSearching || !searchQuery.trim()}
-            className="bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black px-4 py-3 rounded-2xl text-xs flex items-center gap-1.5 shadow-md transition-all shrink-0 disabled:opacity-50"
+            className="bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-black px-4 rounded-2xl text-xs flex items-center justify-center gap-1.5 shadow-md transition-all shrink-0 disabled:opacity-50 active:scale-95"
           >
             <Sparkles className="w-4 h-4 text-amber-900" />
             {isAiSearching ? 'Gemini 檢索中...' : 'AI 全量擴充'}
@@ -181,15 +191,15 @@ export const WordFamilyExplorer: React.FC<WordFamilyExplorerProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Layers className="w-5 h-5 text-emerald-400" />
-            <h3 className="text-sm font-black text-white">10,000+ 托福 iBT 全量學術詞彙庫 (10 Tiers)</h3>
+            <h3 className="text-sm font-black text-white">托福學術詞彙庫 · 10 個詞頻階梯</h3>
           </div>
           <span className="text-[11px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded-full">
-            已載入 {allWords.length} / 10,000+ 字
+            已載入 {allWords.length.toLocaleString()} 字
           </span>
         </div>
 
         <p className="text-xs text-slate-400 leading-relaxed">
-          系統支援完整的 10,000+ 托福真題詞彙分階。點擊下方 Tier 分階可預覽該量級的學術主題，或點擊「一鍵解鎖解構」讓 Gemini AI 動態載入並解析該 Tier 的全新學術真題單字卡！
+          詞庫依 BNC/COCA 詞頻切成 10 個階梯，Tier 1 最高頻、投報率最高。點選任一 Tier 可篩選該層單字；若要更深入的字根拆解與記憶故事，可用「AI 解構」生成。
         </p>
 
         {/* Tier Buttons */}
@@ -199,7 +209,7 @@ export const WordFamilyExplorer: React.FC<WordFamilyExplorerProps> = ({
               key={t.tier}
               onClick={() => {
                 soundFx.playClick();
-                setSelectedTier(t.tier);
+                setSelectedTier(selectedTier === t.tier ? 0 : t.tier);
               }}
               className={`p-2.5 rounded-2xl text-left border transition-all ${
                 selectedTier === t.tier
@@ -208,7 +218,7 @@ export const WordFamilyExplorer: React.FC<WordFamilyExplorerProps> = ({
               }`}
             >
               <div className="text-[10px] font-extrabold text-emerald-400 uppercase">Tier {t.tier}</div>
-              <div className="text-xs font-black truncate">{t.range} 字</div>
+              <div className="text-xs font-black truncate">{(tierCounts.get(t.tier) || 0).toLocaleString()} 字</div>
             </button>
           ))}
         </div>
@@ -220,7 +230,7 @@ export const WordFamilyExplorer: React.FC<WordFamilyExplorerProps> = ({
             <div className="bg-slate-800/90 border border-slate-700 p-4 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
                 <div className="text-xs font-black text-emerald-300">{activeObj.label}</div>
-                <div className="text-xs text-slate-400">主題方向：{activeObj.topic} (包含 {activeObj.range} 量級)</div>
+                <div className="text-xs text-slate-400">{(tierCounts.get(activeObj.tier) || 0).toLocaleString()} 個單字 · 依 BNC/COCA 詞頻排序</div>
               </div>
 
               <button
