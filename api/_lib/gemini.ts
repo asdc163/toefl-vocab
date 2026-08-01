@@ -6,9 +6,24 @@
  * extras (mnemonics, example sentences, words outside the dictionary), so a
  * missing key returns a clear 503 rather than crashing the app.
  */
-import { GoogleGenAI, Type } from '@google/genai';
+/* @google/genai is ESM-only and ~450 KB. Importing it at module scope pulled it
+   into every serverless function — including /api/health, which only needs to
+   read an env var — and any load-time failure in the SDK took the whole route
+   down with it. It is therefore imported lazily, at the moment a request
+   actually needs to reach Gemini. */
 
 const MODEL = 'gemini-3.6-flash';
+
+/* The SDK's Type enum is a plain string enum; mirroring it here keeps the
+   schema literals below free of any import. */
+const Type = {
+  STRING: 'STRING',
+  NUMBER: 'NUMBER',
+  INTEGER: 'INTEGER',
+  BOOLEAN: 'BOOLEAN',
+  ARRAY: 'ARRAY',
+  OBJECT: 'OBJECT',
+} as const;
 
 export class MissingKeyError extends Error {
   constructor() {
@@ -21,9 +36,10 @@ export function isAIEnabled(): boolean {
   return Boolean(process.env.GEMINI_API_KEY);
 }
 
-function client(): GoogleGenAI {
+async function client() {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new MissingKeyError();
+  const { GoogleGenAI } = await import('@google/genai');
   return new GoogleGenAI({ apiKey });
 }
 
@@ -48,7 +64,8 @@ const WORD_CARD_REQUIRED = [
 ];
 
 async function generate(prompt: string, responseSchema: unknown) {
-  const res = await client().models.generateContent({
+  const ai = await client();
+  const res = await ai.models.generateContent({
     model: MODEL,
     contents: prompt,
     config: { responseMimeType: 'application/json', responseSchema: responseSchema as never },
